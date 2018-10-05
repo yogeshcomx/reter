@@ -8,15 +8,23 @@
 
 import UIKit
 import CoreData
+import IQKeyboardManagerSwift
+import Reachability
+import Firebase
+
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    let reachability = Reachability()!
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        IQKeyboardManager.sharedManager().enable = true
+        CheckLoginStatus()
+        FirebaseApp.configure()
         return true
     }
 
@@ -87,6 +95,64 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
             }
         }
+    }
+    
+    func CheckLoginStatus() {
+        NotificationCenter.default.addObserver(self, selector: #selector(reachabilityChanged), name: .reachabilityChanged, object: reachability)
+        do{
+            try reachability.startNotifier()
+        }catch{
+            print("could not start reachability notifier")
+        }
+        let reachable = Reachability()
+        switch reachable!.connection {
+        case .wifi:
+            print("Reachable via WiFi")
+            isDeviceOnline = true
+        case .cellular:
+            print("Reachable via Cellular")
+            isDeviceOnline = true
+        case .none:
+            print("Network not reachable")
+            isDeviceOnline = false
+        }
+        DatabaseManager.shared.createCountriesTable()
+        let userEmailId: String = UserDefaults.standard.value(forKey: "userEmailId") as? String ?? ""
+        let userid:String = UserDefaults.standard.value(forKey: "userId") as? String ?? ""
+        if userEmailId != "" && userid != "" {
+            UpdateAppSettingsVariables()
+            self.window = UIWindow(frame: UIScreen.main.bounds)
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            let initialViewController = storyboard.instantiateViewController(withIdentifier: "HomeController")
+            self.window?.rootViewController = initialViewController
+            self.window?.makeKeyAndVisible()
+        }
+        
+    }
+    
+    @objc func reachabilityChanged(note: Notification) {
+        let reachability = note.object as! Reachability
+        switch reachability.connection {
+        case .wifi:
+            print("Reachable via WiFi")
+            isDeviceOnline = true
+        case .cellular:
+            print("Reachable via Cellular")
+            isDeviceOnline = true
+        case .none:
+            print("Network not reachable")
+            isDeviceOnline = false
+        }
+    }
+    
+    func UpdateAppSettingsVariables() {
+        appMode = UserDefaults.standard.value(forKey: "appMode") as? String ?? ""
+        offlineSmsLimit = UserDefaults.standard.value(forKey: "offlineSMSLimit") as? Int ?? 1000
+        offlineContactsLimit = UserDefaults.standard.value(forKey: "offlineContactsLimit") as? Int ?? 10000
+        userCountryCode = UserDefaults.standard.value(forKey: "userCountryCode") as? String ?? "0"
+        print(appMode)
+        print(offlineSmsLimit)
+        print(offlineContactsLimit)
     }
 
 }
